@@ -5,7 +5,7 @@ Este projeto foi desenvolvido para aprimorar o conhecimento sobre comunicão UAR
 ## Componentes Utilizados
 
 1. **LED RGB** (Vermelho, Verde e Azul)
-2. **Matriz de LED 5x5 WS2812** (Vermelho, Verde e Azul)
+2. **Matriz de LED 5x5 WS2812** (5X5)
 3. **Display SSD1306**
 4. **Microcontrolador Raspberry Pi Pico W**
 5. **Dois botões Pushbutton**
