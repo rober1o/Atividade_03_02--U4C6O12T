@@ -1,7 +1,104 @@
 #include "Tarefa_03_02.h"  // Inclui o cabeçalho do projeto
 
-bool LED_VERDE_ACESO = false;
-bool LED_AZUL_ACESO = false;   
+
+
+int main()
+{
+    // Define o PIO 0 para controle da matriz de LEDs
+    pio = pio0;
+
+    // Configura o clock do sistema para 133 MHz
+    bool clock_setado = set_sys_clock_khz(133000, false);
+    
+    // Inicializa a comunicação serial
+    stdio_init_all();
+    
+    // Exibe mensagem na serial caso o clock tenha sido configurado com sucesso
+    if (clock_setado)
+        printf("Clock setado %ld\n", clock_get_hz(clk_sys));
+
+    // Carrega o programa PIO para controle da matriz de LEDs
+    int offset = pio_add_program(pio, &Matriz_5x5_program);
+    
+    // Obtém um state machine livre para o PIO
+    sm = pio_claim_unused_sm(pio, true);
+    
+    // Inicializa o programa PIO na matriz de LEDs
+    Matriz_5x5_program_init(pio, sm, offset, MATRIZ_PIN);
+    
+    // Exibe o número 8 na matriz de LEDs como padrão
+    desenha_fig(matriz_apagada, BRILHO_PADRAO, pio, sm);
+
+    // Configura o barramento I2C para comunicação com periféricos
+    configurar_i2c();
+    
+    // Configura o display OLED SSD1306
+    configurar_display(&ssd);
+    
+    // Configura os pinos necessários para o funcionamento do sistema
+    iniciar_pinos();
+
+    // Loop principal
+    while (true)
+    {
+        tratar_entrada_serial(); // Chama a função para processar a entrada da UART
+        sleep_ms(100); // Pequeno delay para evitar processamento excessivo
+    }
+}
+
+// Função para exibir um número na matriz de LEDs
+void exibir_numero_matriz(int numero)
+{
+    // Vetor com os padrões de cada número
+    const uint8_t *numeros[10] = {numero_0, numero_1, numero_2, numero_3, numero_4, 
+                                  numero_5, numero_6, numero_7, numero_8, numero_9};
+
+    // Exibe o número correspondente, se estiver no intervalo válido
+    if (numero >= 0 && numero <= 9)
+    {
+        desenha_fig(numeros[numero], BRILHO_PADRAO, pio, sm);
+    }
+}
+
+
+
+
+// Função para tratar entrada da serial
+void tratar_entrada_serial()
+{
+    // Captura entrada do teclado via serial (timeout de 1000 microsegundos)
+    int c = getchar_timeout_us(1000);
+
+    // Se recebeu um caractere válido (diferente de timeout e de nova linha)
+    if ((c != PICO_ERROR_TIMEOUT) && (c != 10))
+    {
+        char tecla = (char)c; // Converte para caractere
+        
+        // Exibe a tecla pressionada no terminal
+        printf("Tecla: %c\n", tecla);
+
+        // Limpa o display OLED
+        ssd1306_fill(&ssd, false);
+        
+        // Exibe a tecla pressionada no display OLED
+        ssd1306_draw_string(&ssd, &tecla, 20, 30);
+        
+        // Atualiza o display OLED
+        ssd1306_send_data(&ssd);
+
+        // Se for um número, exibe na matriz de LEDs
+        if (tecla >= '0' && tecla <= '9') 
+        {
+            int numero = tecla - '0'; // Converte o caractere numérico para inteiro
+            
+            // Chama a função para exibir o número na matriz de LEDs
+            exibir_numero_matriz(numero);
+        }
+    }
+}
+
+
+
 
 // Configura o barramento I2C no Raspberry Pi Pico
 void configurar_i2c()
@@ -158,62 +255,5 @@ void desenha_fig(uint32_t *_matriz, uint8_t _intensidade, PIO pio, uint sm){
         pixel = (g << 16) | (r << 8) | b;
         pio_sm_put_blocking(pio, sm, pixel<<8u);
     }
-}
-
-int main()
-{
-    pio = pio0; // Define o PIO 0
-    bool clock_setado = set_sys_clock_khz(133000, false); // Configura o clock do sistema para 133 MHz
-    stdio_init_all(); // Inicializa a comunicação serial
-    if (clock_setado)
-        printf("Clock setado %ld\n", clock_get_hz(clk_sys)); // Exibe mensagem na serial
-
-    int offset = pio_add_program(pio, &Matriz_5x5_program); // Carrega programa PIO para matriz de LEDs
-    sm = pio_claim_unused_sm(pio, true); // Obtém um state machine livre para PIO
-    Matriz_5x5_program_init(pio, sm, offset, MATRIZ_PIN); // Inicializa o programa PIO
-    desenha_fig(matriz_apagada, BRILHO_PADRAO, pio, sm); // Exibe o número 8 na matriz de LEDs
-
-    configurar_i2c(); // Configura o barramento I2C
-    configurar_display(&ssd); // Configura o display OLED
-    iniciar_pinos();
-    while (true)
-    {
-        int c = getchar_timeout_us(1000); // Captura entrada da serial
-        
-        if ((c != PICO_ERROR_TIMEOUT) && (c != 10)) // Se recebeu um caractere válido
-        {
-            char tecla = (char)c; // Converte para caractere
-            printf("Tecla: %c\n", tecla); // Exibe no terminal
-            ssd1306_fill(&ssd, false); // Limpa o display
-            ssd1306_draw_string(&ssd, &tecla, 20, 30); // Exibe no OLED
-            ssd1306_send_data(&ssd); // Atualiza o display
-    
-            // Se for um número, exibe na matriz de LEDs
-            if (tecla >= '0' && tecla <= '9') 
-            {
-                int numero = tecla - '0'; // Converte o caractere para número inteiro
-                printf("digitou um numero");
-    
-                // Exibe o número correspondente na matriz de LEDs
-                switch (numero)
-                {
-                    case 0: desenha_fig(numero_0, BRILHO_PADRAO, pio, sm); break;
-                    case 1: desenha_fig(numero_1, BRILHO_PADRAO, pio, sm); break;
-                    case 2: desenha_fig(numero_2, BRILHO_PADRAO, pio, sm); break;
-                    case 3: desenha_fig(numero_3, BRILHO_PADRAO, pio, sm); break;
-                    case 4: desenha_fig(numero_4, BRILHO_PADRAO, pio, sm); break;
-                    case 5: desenha_fig(numero_5, BRILHO_PADRAO, pio, sm); break;
-                    case 6: desenha_fig(numero_6, BRILHO_PADRAO, pio, sm); break;
-                    case 7: desenha_fig(numero_7, BRILHO_PADRAO, pio, sm); break;
-                    case 8: desenha_fig(numero_8, BRILHO_PADRAO, pio, sm); break;
-                    case 9: desenha_fig(numero_9, BRILHO_PADRAO, pio, sm); break;
-                }
-            }
-        }
-    
-        sleep_ms(100); // Pequeno delay
-    }
-    
-
 }
     
