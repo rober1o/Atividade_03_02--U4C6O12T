@@ -17,12 +17,12 @@
 #include "inc/ssd1306.h"   // Biblioteca do display OLED SSD1306
 #include "inc/font.h"      // Biblioteca para manipulação de fontes
 
-// Definições de pinos para LEDs e botões
-#define LED_GREEN 11  // Pino do LED verde
-#define LED_BLUE 12   // Pino do LED azul
-#define LED_RED 13    // Pino do LED vermelho
-#define BUTTON_A 5    // Pino do botão A
-#define BUTTON_B 6    // Pino do botão B
+//Defniçaõ das GPIOs do LED RGB e dos botões
+#define BOTAO_A 5
+#define BOTAO_B 6
+#define LED_GREEN 11
+#define LED_BLUE 12
+#define LED_RED 13
 
 // Configurações gerais
 #define BRILHO_PADRAO 100  // Intensidade padrão do brilho
@@ -36,13 +36,17 @@
 #define I2C_SCL 15
 #define ENDERECO_DISPLAY 0x3C // Endereço I2C do display OLED
 
+
+
 // Variáveis globais
 volatile uint32_t ultimo_tempoA = 0;  // Última leitura do botão A
 volatile uint32_t ultimo_tempoB = 0;  // Última leitura do botão B
 volatile bool ligado = false;         // Estado do sistema
-int numero = 0;                       // Número a ser exibido
+int numero = 0;  
+ssd1306_t ssd;                     // Número a ser exibido
 PIO pio;                              // Instância do PIO
-int sm;                               // Máquina de estado do PIO
+int sm;  
+                          // Máquina de estado do PIO
 
 // Declaração das funções
 void piscar_led_red();

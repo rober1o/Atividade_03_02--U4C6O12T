@@ -1,6 +1,7 @@
 #include "Tarefa_03_02.h"  // Inclui o cabeçalho do projeto
 
-
+bool LED_VERDE_ACESO = false;
+bool LED_AZUL_ACESO = false;   
 
 // Configura o barramento I2C no Raspberry Pi Pico
 void configurar_i2c()
@@ -19,6 +20,82 @@ void configurar_display(ssd1306_t *ssd)
     ssd1306_config(ssd); // Configura o display
     ssd1306_fill(ssd, false); // Limpa o display
     ssd1306_send_data(ssd); // Envia os dados para o display
+}
+
+//Iniciar LED e BOTÕES
+
+// Rotina para iniciar e configurar os LEDs e botões
+
+void iniciar_pinos() {
+    gpio_init(LED_RED); 
+    gpio_init(LED_BLUE);
+    gpio_init(LED_GREEN);    
+    gpio_set_dir(LED_RED, GPIO_OUT); 
+    gpio_set_dir(LED_BLUE, GPIO_OUT); 
+    gpio_set_dir(LED_GREEN, GPIO_OUT);
+    gpio_set_dir(BOTAO_A, GPIO_IN);
+    gpio_set_dir(BOTAO_B, GPIO_IN);
+    gpio_pull_up(BOTAO_A); 
+    gpio_pull_up(BOTAO_B);
+
+    // Configura interrupção no botão
+    gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(BOTAO_B, GPIO_IRQ_EDGE_FALL, true, gpio_irq_handler);
+}
+
+// Função para verificar debounce
+bool debounce_ok(uint gpio) {
+    uint32_t tempo_atual = to_ms_since_boot(get_absolute_time()); 
+    
+    if (gpio == BOTAO_A) {
+        if (tempo_atual - ultimo_tempoA > DEBOUNCE_TIME) {
+            ultimo_tempoA = tempo_atual;
+            return true;
+        }
+    } else if (gpio == BOTAO_B) {
+        if (tempo_atual - ultimo_tempoB > DEBOUNCE_TIME) {
+            ultimo_tempoB = tempo_atual;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Função de interrupção do botão
+void gpio_irq_handler(uint gpio, uint32_t events) {
+
+    if ((events & GPIO_IRQ_EDGE_FALL) && debounce_ok(gpio)) { 
+
+        if (gpio == BOTAO_A) {
+            LED_VERDE_ACESO = !LED_VERDE_ACESO;
+            gpio_put(LED_GREEN, LED_VERDE_ACESO);
+            if(LED_VERDE_ACESO){
+                ssd1306_fill(&ssd, false); // Limpa o display
+                printf("O LED VERDE FOI ACESO\n");
+                ssd1306_draw_string(&ssd, "LED VERDE ON\n", 20, 30); // Exibe no OLED
+                ssd1306_send_data(&ssd); // Atualiza o display
+            }else{
+                ssd1306_fill(&ssd, false); // Limpa o display
+                printf("O LED VERDE FOI APAGADO\n");
+                ssd1306_draw_string(&ssd, "LED VERDE OFF\n", 20, 30); // Exibe no OLED
+                ssd1306_send_data(&ssd); // Atualiza o display
+            }
+        } else if (gpio == BOTAO_B) { 
+            LED_AZUL_ACESO = !LED_AZUL_ACESO;
+            gpio_put(LED_BLUE, LED_AZUL_ACESO);
+            if(LED_AZUL_ACESO){
+                ssd1306_fill(&ssd, false); // Limpa o display
+                printf("O LED AZUL FOI ACESO\n");
+                ssd1306_draw_string(&ssd, "LED AZUL ON\n", 20, 30); // Exibe no OLED
+                ssd1306_send_data(&ssd); // Atualiza o display
+            }else{
+                ssd1306_fill(&ssd, false); // Limpa o display
+                printf("O LED AZUL FOI APAGADO\n");
+                ssd1306_draw_string(&ssd, "LED AZUL OFF\n", 20, 30); // Exibe no OLED
+                ssd1306_send_data(&ssd); // Atualiza o display
+            }
+        }
+    }
 }
 
 
@@ -94,12 +171,11 @@ int main()
     int offset = pio_add_program(pio, &Matriz_5x5_program); // Carrega programa PIO para matriz de LEDs
     sm = pio_claim_unused_sm(pio, true); // Obtém um state machine livre para PIO
     Matriz_5x5_program_init(pio, sm, offset, MATRIZ_PIN); // Inicializa o programa PIO
-    desenha_fig(numero_1, BRILHO_PADRAO, pio, sm); // Exibe o número 8 na matriz de LEDs
+    desenha_fig(matriz_apagada, BRILHO_PADRAO, pio, sm); // Exibe o número 8 na matriz de LEDs
 
     configurar_i2c(); // Configura o barramento I2C
-    ssd1306_t ssd;
     configurar_display(&ssd); // Configura o display OLED
-
+    iniciar_pinos();
     while (true)
     {
         int c = getchar_timeout_us(1000); // Captura entrada da serial
@@ -108,7 +184,7 @@ int main()
         {
             char tecla = (char)c; // Converte para caractere
             printf("Tecla: %c\n", tecla); // Exibe no terminal
-            
+            ssd1306_fill(&ssd, false); // Limpa o display
             ssd1306_draw_string(&ssd, &tecla, 20, 30); // Exibe no OLED
             ssd1306_send_data(&ssd); // Atualiza o display
     
@@ -116,6 +192,7 @@ int main()
             if (tecla >= '0' && tecla <= '9') 
             {
                 int numero = tecla - '0'; // Converte o caractere para número inteiro
+                printf("digitou um numero");
     
                 // Exibe o número correspondente na matriz de LEDs
                 switch (numero)
